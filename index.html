@@ -12,6 +12,7 @@
 </head>
 <body>
 
+<script src=sounds.js></script>
 <script type="text/javascript">
     
 const WIDTH = 84
@@ -48,6 +49,7 @@ var total_elapsed_time = 0;
 var total_ticks = -1;
 
 var game = new Phaser.Game(config);
+var sounds = new SoundManager();
     
 // background images
 const BG_DARK = 'bg_dark';
@@ -94,6 +96,8 @@ function preload () {
     for (i = 0; i < BG_LIVES.length; i++) {
       this.load.image(BG_LIVES[i], 'assets/' + BG_LIVES[i] + '.png')
     } 
+    
+    sounds.load_sounds(this);
 }
 
 function create () {
@@ -138,6 +142,7 @@ function anyKeyDown (event) {
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.R) {
         reset_pressed = true;
     }
+    sounds.play(game, sounds.all_sound_keys[rand_int(0, sounds.all_sound_keys.length)]);
 }
 
 function update (time, delay) {
@@ -153,6 +158,10 @@ function update (time, delay) {
         enter_pressed = false;
         reset_pressed = false;
     }
+}
+
+function rand_int(min_inclusive, max_exclusive) {
+   return min_inclusive + Math.floor(Math.random() * (max_exclusive - min_inclusive)) 
 }
 
 function set_bg(scene, image_id) {
