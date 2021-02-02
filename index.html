@@ -44,11 +44,12 @@ var scoreText;
 var bg_image;
     
 const FPS = 30;
-var elapsed_time = 0;
-var tick = -1;
+var total_elapsed_time = 0;
+var total_ticks = -1;
 
 var game = new Phaser.Game(config);
     
+// background images
 const BG_DARK = 'bg_dark';
 const BG_LIGHT = 'bg_light';
 const BG_TUTORIAL_1 = 'bg_tutorial_1';
@@ -57,7 +58,32 @@ const BG_TITLE = 'bg_title';
 const BG_LIVES = ['bg_lives_0', 'bg_lives_1', 'bg_lives_2', 'bg_lives_3', 'bg_lives_4',
                   'bg_lives_5', 'bg_lives_6', 'bg_lives_7', 'bg_lives_8'];
     
+// game states
+const STATE_TITLE_ANIMATED = 0;
+const STATE_TITLE_STATIC = 1;
+const STATE_TUTORIAL = 2;
+const STATE_PLAYING_LEVEL = 3;
+const STATE_LOCKED_IN_ANIMATION = 4;
+const STATE_GAME_OVER = 5;
+const STATE_CREDITS = 6;
+    
+// game state vars
+var cur_state;
+var next_state = null;
+var state_ticks = 0;
 
+// input variables
+var left_pressed = false;
+var left_held = false;
+var right_pressed = false;
+var right_held = false;
+var enter_pressed = false;
+var reset_pressed = false;
+    
+// other variables
+
+    
+    
 function preload () {
     this.load.image(BG_DARK, 'assets/bg_dark.png');
     this.load.image(BG_LIGHT, 'assets/bg_light.png');
@@ -73,33 +99,101 @@ function preload () {
 function create () {
     bg_image = this.add.image(WIDTH / 2, HEIGHT / 2, 'bg_tutorial');
 
-    //  Input Events
-    cursors = this.input.keyboard.createCursorKeys();
+    this.input.keyboard.on('keyup', anyKeyUp, this);
+    this.input.keyboard.on('keydown', anyKeyDown, this);
+    
+    reset(this);
+}
 
+function anyKeyUp (event) {
+    console.log("got key up: " + event);
+    
+    if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.RIGHT 
+            || event.keyCode === Phaser.Input.Keyboard.KeyCodes.D) {
+        right_held = false;
+    }
+    if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.LEFT 
+            || event.keyCode === Phaser.Input.Keyboard.KeyCodes.A) {
+        left_held = false;
+    }
+}
+
+function anyKeyDown (event) {
+    console.log("got key down: " + event);
+    
+    if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.RIGHT 
+            || event.keyCode === Phaser.Input.Keyboard.KeyCodes.D) {
+        right_held = true;
+        right_pressed = true;
+    }
+    if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.LEFT 
+            || event.keyCode === Phaser.Input.Keyboard.KeyCodes.A) {
+        left_held = true;
+        left_pressed = true;
+    }
+    if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.ENTER 
+            || event.keyCode === Phaser.Input.Keyboard.KeyCodes.SPACE) {
+        enter_pressed = true;
+    }
+    if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.R) {
+        reset_pressed = true;
+    }
 }
 
 function update (time, delay) {
-    elapsed_time += delay
-    var old_tick = tick
-    tick = Math.floor(elapsed_time * FPS / 1000);
+    total_elapsed_time += delay
+    var old_tick = total_ticks
+    total_ticks = Math.floor(total_elapsed_time * FPS / 1000);
     
-    if (tick > old_tick) {
-        real_update(this)
+    if (total_ticks > old_tick) {
+        real_update(this);
+        
+        right_pressed = false;
+        left_pressed = false;
+        enter_pressed = false;
+        reset_pressed = false;
     }
+}
+
+function set_bg(scene, image_id) {
+    bg_image.setTexture(image_id);
+}
+
+function reset (scene) {
+    next_state = STATE_TITLE_ANIMATED;
 }
     
 function real_update (scene) {
-    if (tick % 180 < 60) {
-        set_bg(scene, BG_TITLE);
-    } else if (tick % 180 < 120) {
-        set_bg(scene, BG_TUTORIAL_1);
+    if (next_state != null) {
+        cur_state = next_state;
+        state_ticks = 0;
+        next_state = null;
+    }
+    if (reset_pressed) {
+        console.log("INFO: user requested a reset!");
+        reset(scene);
     } else {
-        set_bg(scene, BG_TUTORIAL_2);
+        switch (cur_state){
+            case STATE_TITLE_ANIMATED:
+                update_animated_title_state(scene); break;
+            case STATE_TITLE_STATIC:
+                update_static_title_state(scene); break;
+            default:
+                console.log("WARN: unrecognized state: " + cur_state);
+                reset(scene);
+        }
     }
 }
-    
-function set_bg(scene, image_id) {
-    bg_image.setTexture(image_id);
+
+function update_animated_title_state (scene) {
+    set_bg(scene, BG_TITLE);
+    if (enter_pressed) {
+        next_state = STATE_TITLE_STATIC;
+    }
+}       
+
+function update_static_title_state (scene) {
+    set_bg(scene, BG_TUTORIAL_1);
 }
 
 </script>
