@@ -23,7 +23,18 @@ class GameArea {
     right_line() {
         return new Phaser.Geom.Line(this.width, 0, this.width, this.height); 
     }
+    
+    rand_points(n) {
+        var res = [];  // TODO avoid dupes
+        for (var i = 0; i < n; i++) {
+            var x = Math.floor(Math.random() * this.width);
+            var y = Math.floor(Math.random() * this.height);
+            res.push(new Phaser.Geom.Point(x, y));
+        }
+        return res;
+    }
 }
+
 
 class PlayerLine {
 
@@ -72,13 +83,15 @@ class PlayerLine {
     
     destroy (scene) {
         if (this.line_obj != null) {
-            scene.remove(this.line_obj);
+            this.line_obj.destroy();
             this.line_obj = null;
         }
     }
 }
 
+
 class Particle {
+
     constructor(art_id, game_area) {
         this.art_id = art_id;
         this.is_light = true;
@@ -128,8 +141,56 @@ class Particle {
     
     destroy (scene) {
         if (this.sprite_obj != null) {
-            scene.remove(this.sprite_obj);
+            this.sprite_obj.destroy();
             this.sprite_obj = null;
         }
     }
+}
+
+
+class FixedParticle extends Particle {
+    
+    constructor(x, y, game_area) {
+        super(0, game_area);
+        this.x = x;
+        this.y = y;
+    }
+    
+    get_raw_pos(tick) {
+        return new Phaser.Math.Vector2(this.x, this.y);
+    }
+
+}
+
+
+class ParticleSet {
+
+    constructor(particles) {
+        this.particles = particles;
+    }
+    
+    update (scene, tick) {
+        this.particles.forEach(function (item, index) {
+            item.update(scene, tick);
+        })
+    }
+    
+    destroy (scene) {
+        this.particles.forEach(function (item, index) {
+            item.destroy(scene);
+        })
+    }
+    
+    forEach(func) {
+        this.particles.forEach(func);
+    }
+}
+
+function gen_level(game_area, level_num) {
+    pts = game_area.rand_points((level_num + 1) * 2);
+    particles = [];
+    for (var i = 0; i < pts.length; i++) {
+        particles.push(new FixedParticle(pts[i].x, pts[i].y, game_area));
+    }
+    return new ParticleSet(particles);
 }

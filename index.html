@@ -55,9 +55,9 @@ var total_ticks = -1;
 
 var game = new Phaser.Game(config);
 var sounds = new SoundManager();
-var player_line;
-var game_area;
-var test_particle;
+var player_line;    // PlayerLine
+var game_area;      // GameArea
+var active_level;   // ParticleSet
     
 // background images
 const BG_DARK = 'bg_dark';
@@ -217,7 +217,10 @@ function reset (scene) {
     }
     game_area = new GameArea(2, 2, 80, 30);
     player_line = new PlayerLine(game_area);
-    test_particle = new Particle(0, game_area);
+    if (active_level != null) {
+        active_level.destroy(scene);
+    }
+    active_level = gen_level(game_area, 0);
 }
     
 function real_update (scene) {
@@ -263,7 +266,7 @@ function update_playing_level_state(scene) {
     set_bg(scene, BG_DARK, FG_LIVES[8]);
     player_line.rotate(0.1);
     player_line.update(scene, state_ticks);
-    test_particle.update(scene, state_ticks);
+    active_level.update(scene, state_ticks);
     
 }
 
