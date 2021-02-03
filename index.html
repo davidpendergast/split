@@ -57,6 +57,7 @@ var game = new Phaser.Game(config);
 var sounds = new SoundManager();
 var player_line;
 var game_area;
+var test_particle;
     
 // background images
 const BG_DARK = 'bg_dark';
@@ -67,6 +68,13 @@ const FG_TUTORIAL_2 = 'fg_tutorial_2';
 const FG_LIVES = ['fg_lives_0', 'fg_lives_1', 'fg_lives_2', 'fg_lives_3', 'fg_lives_4',
                   'fg_lives_5', 'fg_lives_6', 'fg_lives_7', 'fg_lives_8'];
 const FG_BLANK = 'fg_blank';
+
+// object images
+const PARTICLES_SHEET_LIGHT = 'particles_light';
+const PARTICLES_SHEET_DARK = 'particles_dark';
+
+// anims
+const PARTICLE_ANIMS = []
     
 // game states
 const STATE_TITLE_ANIMATED = 0;
@@ -105,6 +113,8 @@ function preload () {
     for (i = 0; i < FG_LIVES.length; i++) {
       this.load.image(FG_LIVES[i], 'assets/' + FG_LIVES[i] + '.png')
     } 
+    this.load.spritesheet(PARTICLES_SHEET_LIGHT, 'assets/particles.png', { frameWidth: 4, frameHeight: 4 });
+    this.load.spritesheet(PARTICLES_SHEET_DARK, 'assets/particles_inverted.png', { frameWidth: 4, frameHeight: 4 });
     
     sounds.load_sounds(this);
 }
@@ -113,11 +123,35 @@ function create () {
     bg_image = this.add.image(WIDTH / 2, HEIGHT / 2, BG_DARK);
     fg_image = this.add.image(WIDTH / 2, HEIGHT / 2, FG_BLANK);
     fg_image.setDepth(1000);
+    create_particle_anims(this);
 
     this.input.keyboard.on('keyup', anyKeyUp, this);
     this.input.keyboard.on('keydown', anyKeyDown, this);
     
     reset(this);
+}
+
+function create_particle_anims(scene) {
+    var size = 4;
+    var xdims = 21;
+    var ydims = 12;
+    var i;
+    for (i = 0; i < 9; i++) {
+        var light_key = 'particle_light_' + i;
+        var dark_key = 'particle_dark_' + i;
+        var start_frame = i * xdims;
+        var n_frames = 4;
+        if (i == 5) {
+            n_frames = 6;
+        } 
+        var frames = [];
+        var light_frames = [];
+        var j;
+        for (j = start_frame; j < start_frame + n_frames; j++) {
+            frames.push(j);
+        }
+        PARTICLE_ANIMS.push(frames);
+    }
 }
 
 function anyKeyUp (event) {
@@ -183,6 +217,7 @@ function reset (scene) {
     }
     game_area = new GameArea(2, 2, 80, 30);
     player_line = new PlayerLine(game_area);
+    test_particle = new Particle(0, game_area);
 }
     
 function real_update (scene) {
@@ -228,6 +263,7 @@ function update_playing_level_state(scene) {
     set_bg(scene, BG_DARK, FG_LIVES[8]);
     player_line.rotate(0.1);
     player_line.update(scene, state_ticks);
+    test_particle.update(scene, state_ticks);
     
 }
 
