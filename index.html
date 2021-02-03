@@ -3,7 +3,7 @@
 <head> 
     <meta charset="UTF-8" />
     <title>Split</title>
-    <script src="//cdn.jsdelivr.net/npm/phaser@3.11.0/dist/phaser.js"></script>
+    <script src="//cdn.jsdelivr.net/npm/phaser@3.51.0/dist/phaser.js"></script>
     <style type="text/css">
         body {
             margin: 0;
@@ -13,10 +13,14 @@
 <body>
 
 <script src=sounds.js></script>
+<script src=game.js></script>
 <script type="text/javascript">
     
 const WIDTH = 84
 const HEIGHT = 48
+
+const LIGHT = Phaser.Display.Color.HexStringToColor("#c7f0d8").color;
+const DARK = Phaser.Display.Color.HexStringToColor("#43523d").color;
 
 var config = {
     type: Phaser.AUTO,
@@ -43,6 +47,7 @@ var score = 0;
 var scoreText;
 
 var bg_image;
+var fg_image;
     
 const FPS = 30;
 var total_elapsed_time = 0;
@@ -50,15 +55,18 @@ var total_ticks = -1;
 
 var game = new Phaser.Game(config);
 var sounds = new SoundManager();
+var player_line;
+var game_area;
     
 // background images
 const BG_DARK = 'bg_dark';
 const BG_LIGHT = 'bg_light';
-const BG_TUTORIAL_1 = 'bg_tutorial_1';
-const BG_TUTORIAL_2 = 'bg_tutorial_2';
 const BG_TITLE = 'bg_title';
-const BG_LIVES = ['bg_lives_0', 'bg_lives_1', 'bg_lives_2', 'bg_lives_3', 'bg_lives_4',
-                  'bg_lives_5', 'bg_lives_6', 'bg_lives_7', 'bg_lives_8'];
+const FG_TUTORIAL_1 = 'fg_tutorial_1';
+const FG_TUTORIAL_2 = 'fg_tutorial_2';
+const FG_LIVES = ['fg_lives_0', 'fg_lives_1', 'fg_lives_2', 'fg_lives_3', 'fg_lives_4',
+                  'fg_lives_5', 'fg_lives_6', 'fg_lives_7', 'fg_lives_8'];
+const FG_BLANK = 'fg_blank';
     
 // game states
 const STATE_TITLE_ANIMATED = 0;
@@ -89,19 +97,22 @@ var reset_pressed = false;
 function preload () {
     this.load.image(BG_DARK, 'assets/bg_dark.png');
     this.load.image(BG_LIGHT, 'assets/bg_light.png');
-    this.load.image(BG_TUTORIAL_1, 'assets/bg_tutorial.png');
-    this.load.image(BG_TUTORIAL_2, 'assets/bg_tutorial_2.png');
+    this.load.image(FG_TUTORIAL_1, 'assets/fg_tutorial.png');
+    this.load.image(FG_TUTORIAL_2, 'assets/fg_tutorial_2.png');
     this.load.image(BG_TITLE, 'assets/bg_title.png');
+    this.load.image(FG_BLANK, 'assets/fg_blank.png');
     var i;
-    for (i = 0; i < BG_LIVES.length; i++) {
-      this.load.image(BG_LIVES[i], 'assets/' + BG_LIVES[i] + '.png')
+    for (i = 0; i < FG_LIVES.length; i++) {
+      this.load.image(FG_LIVES[i], 'assets/' + FG_LIVES[i] + '.png')
     } 
     
     sounds.load_sounds(this);
 }
 
 function create () {
-    bg_image = this.add.image(WIDTH / 2, HEIGHT / 2, 'bg_tutorial');
+    bg_image = this.add.image(WIDTH / 2, HEIGHT / 2, BG_DARK);
+    fg_image = this.add.image(WIDTH / 2, HEIGHT / 2, FG_BLANK);
+    fg_image.setDepth(1000);
 
     this.input.keyboard.on('keyup', anyKeyUp, this);
     this.input.keyboard.on('keydown', anyKeyDown, this);
@@ -110,8 +121,6 @@ function create () {
 }
 
 function anyKeyUp (event) {
-    console.log("got key up: " + event);
-    
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.RIGHT 
             || event.keyCode === Phaser.Input.Keyboard.KeyCodes.D) {
         right_held = false;
@@ -123,8 +132,6 @@ function anyKeyUp (event) {
 }
 
 function anyKeyDown (event) {
-    console.log("got key down: " + event);
-    
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.RIGHT 
             || event.keyCode === Phaser.Input.Keyboard.KeyCodes.D) {
         right_held = true;
@@ -164,12 +171,18 @@ function rand_int(min_inclusive, max_exclusive) {
    return min_inclusive + Math.floor(Math.random() * (max_exclusive - min_inclusive)) 
 }
 
-function set_bg(scene, image_id) {
-    bg_image.setTexture(image_id);
+function set_bg(scene, bg_image_id, fg_image_id) {
+    bg_image.setTexture(bg_image_id);
+    fg_image.setTexture(fg_image_id);
 }
 
 function reset (scene) {
     next_state = STATE_TITLE_ANIMATED;
+    if (player_line != null) {
+        player_line.destroy(scene);
+    }
+    game_area = new GameArea(2, 2, 80, 30);
+    player_line = new PlayerLine(game_area);
 }
     
 function real_update (scene) {
@@ -187,11 +200,14 @@ function real_update (scene) {
                 update_animated_title_state(scene); break;
             case STATE_TITLE_STATIC:
                 update_static_title_state(scene); break;
+            case STATE_PLAYING_LEVEL:
+                update_playing_level_state(scene); break;
             default:
                 console.log("WARN: unrecognized state: " + cur_state);
                 reset(scene);
         }
     }
+    state_ticks++;
 }
 
 function update_animated_title_state (scene) {
@@ -202,7 +218,17 @@ function update_animated_title_state (scene) {
 }       
 
 function update_static_title_state (scene) {
-    set_bg(scene, BG_TUTORIAL_1);
+    set_bg(scene, BG_DARK, FG_TUTORIAL_1);
+    if (enter_pressed) {
+        next_state = STATE_PLAYING_LEVEL;
+    }
+}
+
+function update_playing_level_state(scene) {
+    set_bg(scene, BG_DARK, FG_LIVES[8]);
+    player_line.rotate(0.1);
+    player_line.update(scene, state_ticks);
+    
 }
 
 </script>

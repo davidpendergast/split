@@ -1,6 +1,6 @@
 class SoundManager {
     
-    constructor() {
+    constructor () {
         this.bad_melody = "bad_melody.wav";
         this.blips = [];
         this.crust = "crust.wav";
@@ -33,7 +33,7 @@ class SoundManager {
         this.active_sound = null;
     }
     
-    _reg(key) {
+    _reg (key) {
         this.all_sound_keys.push(key);
         return key;
     }
