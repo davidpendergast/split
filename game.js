@@ -103,8 +103,12 @@ class Particle {
         this.sprite_obj = null;
     }
     
+    set_is_light(val) {
+        this.is_light = val;
+    }
+    
     get_raw_pos(tick) {
-        return new Phaser.Math.Vector2(3, 3);
+        return new Phaser.Geom.Point(3, 3);
     }
     
     get_pos(tick) {
@@ -130,8 +134,8 @@ class Particle {
     update (scene, tick) { 
         if (this.sprite_obj == null) {
             this.sprite_obj = scene.add.sprite(0, 0, PARTICLES_SHEET_LIGHT);
-            this.update_texture();
         }
+        this.update_texture();
         var pos = this.get_pos(tick)
         var xoffs = this.game_area.xoffs;
         var yoffs = this.game_area.yoffs;
@@ -157,7 +161,7 @@ class FixedParticle extends Particle {
     }
     
     get_raw_pos(tick) {
-        return new Phaser.Math.Vector2(this.x, this.y);
+        return new Phaser.Geom.Point(this.x, this.y);
     }
 
 }
@@ -181,8 +185,45 @@ class ParticleSet {
         })
     }
     
-    forEach(func) {
+    forEach (func) {
         this.particles.forEach(func);
+    }
+    
+    get_points (player_line, orientation) {
+        const thresh = 1;
+        
+        var above = [];
+        var below = [];
+        var on_line = [];
+        
+        var line = player_line.get_line();
+        
+        var center = Phaser.Geom.Line.GetMidPoint(line);
+        var normal_x = Phaser.Geom.Line.NormalX(line);
+        var normal_y = Phaser.Geom.Line.NormalY(line);
+        
+        for (var i = 0; i < this.particles.length; i++) {
+            var pt = this.particles[i].get_pos();
+            if (Phaser.Geom.Line.GetShortestDistance(line, pt) <= thresh) {
+                on_line.push(this.particles[i]);
+            } else {
+                var vx = pt.x - center.x;
+                var vy = pt.y - center.y;
+                if (vx * normal_x + vy * normal_y > 0) {
+                    above.push(pt);
+                } else {
+                    below.push(pt);
+                }
+            }
+        }
+        
+        if (orientation == 0) {
+            return on_line;
+        } else if (orientation > 0) {
+            return above;
+        } else {
+            return below;
+        }
     }
 }
 

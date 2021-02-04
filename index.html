@@ -50,6 +50,8 @@ var bg_image;
 var fg_image;
     
 const FPS = 30;
+const rotate_speed = 0.1;
+const slow_rotate_speed = rotate_speed / 4;
 var total_elapsed_time = 0;
 var total_ticks = -1;
 
@@ -62,12 +64,13 @@ var active_level;   // ParticleSet
 // background images
 const BG_DARK = 'bg_dark';
 const BG_LIGHT = 'bg_light';
-const BG_TITLE = 'bg_title';
+const FG_TITLE = 'fg_title';
 const FG_TUTORIAL_1 = 'fg_tutorial_1';
 const FG_TUTORIAL_2 = 'fg_tutorial_2';
 const FG_LIVES = ['fg_lives_0', 'fg_lives_1', 'fg_lives_2', 'fg_lives_3', 'fg_lives_4',
                   'fg_lives_5', 'fg_lives_6', 'fg_lives_7', 'fg_lives_8'];
 const FG_BLANK = 'fg_blank';
+const FG_GAME_OVER = 'fg_game_over';
 
 // object images
 const PARTICLES_SHEET_LIGHT = 'particles_light';
@@ -80,10 +83,11 @@ const PARTICLE_ANIMS = []
 const STATE_TITLE_ANIMATED = 0;
 const STATE_TITLE_STATIC = 1;
 const STATE_TUTORIAL = 2;
-const STATE_PLAYING_LEVEL = 3;
-const STATE_LOCKED_IN_ANIMATION = 4;
-const STATE_GAME_OVER = 5;
-const STATE_CREDITS = 6;
+const STATE_GENERATING_LEVEL = 3;
+const STATE_PLAYING_LEVEL = 4;
+const STATE_LOCKED_IN_ANIMATION = 5;
+const STATE_GAME_OVER = 6;
+const STATE_CREDITS = 7;
     
 // game state vars
 var cur_state;
@@ -97,9 +101,11 @@ var right_pressed = false;
 var right_held = false;
 var enter_pressed = false;
 var reset_pressed = false;
+var shift_held = false;
     
 // other variables
-
+var lives;
+var level_num;
     
     
 function preload () {
@@ -107,7 +113,8 @@ function preload () {
     this.load.image(BG_LIGHT, 'assets/bg_light.png');
     this.load.image(FG_TUTORIAL_1, 'assets/fg_tutorial.png');
     this.load.image(FG_TUTORIAL_2, 'assets/fg_tutorial_2.png');
-    this.load.image(BG_TITLE, 'assets/bg_title.png');
+    this.load.image(FG_TITLE, 'assets/fg_title.png');
+    this.load.image(FG_GAME_OVER, 'assets/fg_game_over.png');
     this.load.image(FG_BLANK, 'assets/fg_blank.png');
     var i;
     for (i = 0; i < FG_LIVES.length; i++) {
@@ -163,6 +170,9 @@ function anyKeyUp (event) {
             || event.keyCode === Phaser.Input.Keyboard.KeyCodes.A) {
         left_held = false;
     }
+    if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.SHIFT) {
+        shift_held = false;
+    }
 }
 
 function anyKeyDown (event) {
@@ -182,6 +192,9 @@ function anyKeyDown (event) {
     }
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.R) {
         reset_pressed = true;
+    }
+    if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.SHIFT) {
+        shift_held = true;
     }
     sounds.play(game, sounds.all_sound_keys[rand_int(0, sounds.all_sound_keys.length)]);
 }
@@ -219,8 +232,10 @@ function reset (scene) {
     player_line = new PlayerLine(game_area);
     if (active_level != null) {
         active_level.destroy(scene);
+        active_level = null;
     }
-    active_level = gen_level(game_area, 0);
+    lives = 8;
+    level_num = 0;
 }
     
 function real_update (scene) {
@@ -238,8 +253,16 @@ function real_update (scene) {
                 update_animated_title_state(scene); break;
             case STATE_TITLE_STATIC:
                 update_static_title_state(scene); break;
+            case STATE_TUTORIAL:
+                update_tutorial_state(scene); break;
+            case STATE_GENERATING_LEVEL:
+                update_generating_level_state(scene); break;
             case STATE_PLAYING_LEVEL:
                 update_playing_level_state(scene); break;
+            case STATE_LOCKED_IN_ANIMATION:
+                update_locked_in_animation_state(scene); break;
+            case STATE_GAME_OVER:
+                update_game_over_state(scene); break;
             default:
                 console.log("WARN: unrecognized state: " + cur_state);
                 reset(scene);
@@ -249,25 +272,125 @@ function real_update (scene) {
 }
 
 function update_animated_title_state (scene) {
-    set_bg(scene, BG_TITLE);
+    set_bg(scene, BG_LIGHT, FG_TITLE);
+    
     if (enter_pressed) {
         next_state = STATE_TITLE_STATIC;
     }
 }       
 
 function update_static_title_state (scene) {
-    set_bg(scene, BG_DARK, FG_TUTORIAL_1);
+    set_bg(scene, BG_LIGHT, FG_TITLE);
+    
     if (enter_pressed) {
-        next_state = STATE_PLAYING_LEVEL;
+        next_state = STATE_TUTORIAL;
     }
 }
 
-function update_playing_level_state(scene) {
-    set_bg(scene, BG_DARK, FG_LIVES[8]);
-    player_line.rotate(0.1);
-    player_line.update(scene, state_ticks);
-    active_level.update(scene, state_ticks);
+function update_tutorial_state (scene) {
+    set_bg(scene, BG_DARK, FG_TUTORIAL_1);
     
+    update_player_line(scene);
+    
+    if (enter_pressed) {
+        next_state = STATE_GENERATING_LEVEL;
+    }
+}
+
+function get_level_fg () {
+    if (level_num == 0) {
+        return FG_TUTORIAL_2;
+    } else {
+        return FG_LIVES[lives];
+    }
+} 
+
+function update_generating_level_state (scene) {
+    set_bg(scene, BG_DARK, get_level_fg());
+    if (active_level != null) {
+        active_level.destroy(scene);
+    }
+    active_level = gen_level(game_area, level_num);
+    
+    next_state = STATE_PLAYING_LEVEL;
+}
+
+function update_player_line(scene) {
+    var rot_dir = 0;
+    if (left_held) {
+        rot_dir -= 1;
+    }
+    if (right_held) {
+        rot_dir += 1;
+    }
+    var rot = rot_dir * (shift_held ? slow_rotate_speed : rotate_speed); 
+    player_line.rotate(rot);
+    player_line.update(scene, state_ticks);
+}
+
+function update_playing_level_state (scene) {
+    set_bg(scene, BG_DARK, get_level_fg());
+    
+    if (enter_pressed) {
+        next_state = STATE_LOCKED_IN_ANIMATION;
+    } else {
+        update_player_line(scene);
+        
+        var pts_on_line = active_level.get_points(player_line, 0);
+        active_level.forEach(function (item, index) {
+            if (pts_on_line.includes(item)) {
+                item.set_is_light(false);
+            } else {
+                item.set_is_light(true);
+            }
+        })
+        
+        active_level.update(scene, state_ticks);
+    }
+}
+
+function update_locked_in_animation_state (scene) {
+    set_bg(scene, BG_DARK, FG_LIVES[lives]);
+    
+    var above = active_level.get_points(player_line, 1);
+    var on_line = active_level.get_points(player_line, 0);
+    var below = active_level.get_points(player_line, -1);
+    
+    while (on_line.length > 0) {
+        var pt = on_line.pop();
+        if (above.length < below.length) {
+            above.push(pt);
+        } else {
+            below.push(pt);
+        }
+    }
+    
+    var score = Math.abs(above.length - below.length);
+    console.log('INFO: score = ' + score);
+    
+    if (score > 0) {
+        var lives_lost = Math.ceil(score / 2);
+        lives = Math.max(0, lives - lives_lost);
+    }
+    
+    if (lives > 0) {
+        level_num += 1;
+        next_state = STATE_GENERATING_LEVEL;
+    } else {
+        next_state = STATE_GAME_OVER;
+    }
+}
+
+function update_game_over_state (scene) {
+    set_bg(scene, BG_LIGHT, FG_GAME_OVER);  // TODO
+    active_level.destroy();
+    player_line.destroy();
+    
+    console.log('INFO game over! level: ' + level_num);
+    
+    if (enter_pressed) {
+        reset(scene);
+    }
 }
 
 </script>
