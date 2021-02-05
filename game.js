@@ -1,4 +1,5 @@
 
+
 class GameArea {
     
     constructor (xoffs, yoffs, width, height) {
@@ -24,14 +25,37 @@ class GameArea {
         return new Phaser.Geom.Line(this.width, 0, this.width, this.height); 
     }
     
-    rand_points(n) {
-        var res = [];  // TODO avoid dupes
-        for (var i = 0; i < n; i++) {
-            var x = Math.floor(Math.random() * this.width);
-            var y = Math.floor(Math.random() * this.height);
-            res.push(new Phaser.Geom.Point(x, y));
+    rand_points(n, unique) {
+        var inset = 2;
+        if (unique == null || n > (this.width - inset * 2) * (this.height - inset * 2)) {
+            unique = false;
+        }
+        var res = [];
+        
+        if (unique) {
+            var all_pts = []
+            for (var x = inset; x < this.width - inset; x++) {
+                for (var y = inset; y < this.height - inset; y++) {
+                    all_pts.push(new Phaser.Geom.Point(x, y));
+                }
+            }
+            shuffle(all_pts);
+            for (var i = 0; i < Math.min(n, all_pts.length); i++) {
+                res.push(all_pts[i]);
+            }
+        } else {
+            for (var i = 0; i < n; i++) {
+                var x = inset + Math.floor(Math.random() * (this.width - inset));
+                var y = inset + Math.floor(Math.random() * (this.height - inset));
+                res.push(new Phaser.Geom.Point(x, y));
+            }
         }
         return res;
+    }
+    
+    rand_rect() {
+        var pts = this.rand_points(2, true); 
+        return Phaser.Geom.Rectangle.FromXY(pts[0].x, pts[0].y, pts[1].x, pts[1].y);
     }
 }
 
@@ -163,7 +187,27 @@ class FixedParticle extends Particle {
     get_raw_pos(tick) {
         return new Phaser.Geom.Point(this.x, this.y);
     }
+}
 
+
+class EllipseParticle extends Particle {
+
+    constructor(p1, p2, period_secs, offset, game_area) {
+        super(1, game_area);
+        this.rect = Phaser.Geom.Rectangle.FromXY(p1.x, p1.y, p2.x, p2.y);
+        this.period = period_secs * FPS;
+        this.offset = offset;
+        this.game_area
+    }
+    
+    get_raw_pos(tick) {
+        var cx = this.rect.centerX;
+        var cy = this.rect.centerY;
+        var angle = 2 * Math.PI * (this.offset + (tick % this.period) / this.period);
+        var x = cx + this.rect.width / 2 * Math.cos(angle);
+        var y = cy + this.rect.height / 2 * Math.sin(angle);
+        return new Phaser.Geom.Point(x, y);
+    }
 }
 
 
@@ -227,11 +271,86 @@ class ParticleSet {
     }
 }
 
-function gen_level(game_area, level_num) {
-    pts = game_area.rand_points((level_num + 1) * 2);
-    particles = [];
-    for (var i = 0; i < pts.length; i++) {
-        particles.push(new FixedParticle(pts[i].x, pts[i].y, game_area));
+const FIXED____ = "FIXED";
+const ELLIPSE__ = "ELLIPSE";
+
+const WEIGHTS = new Map();
+WEIGHTS.set(FIXED____, [10, 10, 10, 10, 10, 10, 10, 10,  9,  8,  7,  6,  5,  5,  5]);
+WEIGHTS.set(ELLIPSE__, [ 0,  0, 5,   7, 10, 15, 20, 15, 15, 15,  5,  5,  5,  5,  5]);
+
+function get_weights_for_level(level_num) {
+    var res = new Map();
+    WEIGHTS.forEach((function (value, key) {
+        if (level_num >= value.length) {
+            res.set(key, value[value.length - 1]);
+        } else {
+            res.set(key, value[level_num]);
+        }
+    }));
+    return res;
+}
+
+function select_particle_types_for_level(n, level_num) {
+    var weights = get_weights_for_level(level_num);
+    var selection_array = []
+    weights.forEach((function (value, key) {
+        for (var i = 0; i < value; i++) {
+            selection_array.push(key);
+        }
+    }));
+    var res = [];
+    for (var i = 0; i < n; i++) {
+        var r = Math.floor(Math.random() * selection_array.length);
+        res.push(selection_array[r]);
     }
-    return new ParticleSet(particles);
+    return res;
+}
+
+function build_particles(game_area, particle_types) {
+    counts = new Map();
+    particle_types.forEach((function (value) {
+        if (!counts.has(value)) {
+            counts.set(value, 0);
+        }
+        counts.set(value, counts.get(value) + 1);
+    }));
+    
+    console.log(counts);
+    
+    var res = [];
+    
+    if (counts.has(FIXED____)) {
+        var pts = game_area.rand_points(counts.get(FIXED____), true);
+        for (var i = 0; i < pts.length; i++) {
+            res.push(new FixedParticle(pts[i].x, pts[i].y, game_area))
+        }
+    }
+    
+    if (counts.has(ELLIPSE__)) {
+        var pts = game_area.rand_points(counts.get(ELLIPSE__) * 2, true);
+        for (var i = 0; i < pts.length / 2; i++) {
+            var p1 = pts[i * 2];
+            var p2 = pts[i * 2 + 1];
+            var r = Math.random();
+            var period = 4
+            res.push(new EllipseParticle(p1, p2, period, r, game_area));
+        }
+    }
+    
+    return new ParticleSet(res);
+}
+
+function gen_num_particles(level_num) {
+    var avg = 2 + Math.sqrt(3 * level_num);
+    var min = 2
+    var variance = Math.floor(level_num / 10);
+    var res = Math.max(min, Math.round(avg + 2 * (0.5 - Math.random()) * variance))
+    res -= res % 2;
+    return res;
+}
+
+function gen_level(game_area, level_num) {
+    var n_pts = gen_num_particles(level_num);
+    var particle_types = select_particle_types_for_level(n_pts, level_num);
+    return build_particles(game_area, particle_types);
 }
