@@ -125,10 +125,15 @@ class Particle {
         this.anim_offset = Math.floor(Math.random() * 100);
         
         this.sprite_obj = null;
+        this.hidden = false;
     }
     
     set_is_light(val) {
         this.is_light = val;
+    }
+    
+    set_hidden(val) {
+        this.hidden = val;
     }
     
     get_raw_pos(tick) {
@@ -156,15 +161,22 @@ class Particle {
     }
     
     update (scene, tick) { 
-        if (this.sprite_obj == null) {
+        if (this.sprite_obj == null && !this.hidden) {
             this.sprite_obj = scene.add.sprite(0, 0, PARTICLES_SHEET_LIGHT);
+        }
+        if (this.hidden && this.sprite_obj != null) {
+            this.sprite_obj.destroy();
+            this.sprite_obj = null;
         }
         this.update_texture();
         var pos = this.get_pos(tick)
         var xoffs = this.game_area.xoffs;
         var yoffs = this.game_area.yoffs;
-        this.sprite_obj.setPosition(xoffs + pos.x, yoffs + pos.y);
-        this.sprite_obj.setFrame(this.get_anim_frame(tick));
+        
+        if (this.sprite_obj != null) {
+            this.sprite_obj.setPosition(xoffs + pos.x, yoffs + pos.y);
+            this.sprite_obj.setFrame(this.get_anim_frame(tick));
+        }
     }
     
     destroy (scene) {
@@ -193,20 +205,21 @@ class FixedParticle extends Particle {
 class EllipseParticle extends Particle {
 
     constructor(p1, p2, period_secs, offset, game_area) {
-        super(1, game_area);
+        super(0, game_area);
         this.rect = Phaser.Geom.Rectangle.FromXY(p1.x, p1.y, p2.x, p2.y);
-        this.period = period_secs * FPS;
+        this.period = period_secs * 30;
         this.offset = offset;
-        this.game_area
     }
     
     get_raw_pos(tick) {
         var cx = this.rect.centerX;
         var cy = this.rect.centerY;
-        var angle = 2 * Math.PI * (this.offset + (tick % this.period) / this.period);
+        var angle = 2 * Math.PI * (this.offset + tick / this.period);
         var x = cx + this.rect.width / 2 * Math.cos(angle);
         var y = cy + this.rect.height / 2 * Math.sin(angle);
-        return new Phaser.Geom.Point(x, y);
+        var res = new Phaser.Geom.Point(x, y);
+        console.log('pos = ', res);
+        return res;
     }
 }
 
@@ -215,12 +228,17 @@ class ParticleSet {
 
     constructor(particles) {
         this.particles = particles;
+        this.last_tick = 0
     }
     
     update (scene, tick) {
+        if (tick == null) {
+            tick = this.last_tick;
+        }
         this.particles.forEach(function (item, index) {
             item.update(scene, tick);
         })
+        this.last_tick = tick;
     }
     
     destroy (scene) {
@@ -233,7 +251,10 @@ class ParticleSet {
         this.particles.forEach(func);
     }
     
-    get_points (player_line, orientation) {
+    get_particles_relative_to_line (player_line, orientation, tick) {
+        if (tick == null) {
+            tick = this.last_tick;
+        }
         const thresh = 1;
         
         var above = [];
@@ -247,16 +268,16 @@ class ParticleSet {
         var normal_y = Phaser.Geom.Line.NormalY(line);
         
         for (var i = 0; i < this.particles.length; i++) {
-            var pt = this.particles[i].get_pos();
+            var pt = this.particles[i].get_pos(tick);
             if (Phaser.Geom.Line.GetShortestDistance(line, pt) <= thresh) {
                 on_line.push(this.particles[i]);
             } else {
                 var vx = pt.x - center.x;
                 var vy = pt.y - center.y;
                 if (vx * normal_x + vy * normal_y > 0) {
-                    above.push(pt);
+                    above.push(this.particles[i]);
                 } else {
-                    below.push(pt);
+                    below.push(this.particles[i]);
                 }
             }
         }
@@ -314,8 +335,6 @@ function build_particles(game_area, particle_types) {
         }
         counts.set(value, counts.get(value) + 1);
     }));
-    
-    console.log(counts);
     
     var res = [];
     

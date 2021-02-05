@@ -1,18 +1,18 @@
 class SoundManager {
     
     constructor () {
-        this.bad_melody = "bad_melody.wav";
+        this.all_sound_keys = []
+    
+        this.bad_melody = this._reg("bad_melody.wav");
         this.blips = [];
-        this.crust = "crust.wav";
+        this.crust = this._reg("crust.wav");
         this.goods = [];
         this.hits = [];
-        this.negatives = ["negative1.wav", "negative2.wav"];
+        this.negatives = [this._reg("negative1.wav"), this._reg("negative2.wav")];
         this.odds = [];
-        this.ring = "ring1.wav";
-        this.unrealistic = "unrealistic.wav";
-        this.jingle = "jingle1.wav";
-
-        this.all_sound_keys = []
+        this.ring = this._reg("ring1.wav");
+        this.unrealistic = this._reg("unrealistic.wav");
+        this.jingle = this._reg("jingle1.wav");
 
         this.key_to_sound_obj = new Map();
 
@@ -54,7 +54,10 @@ class SoundManager {
     }
     
     play (scene, sound_key, volume) {
-        console.log("INFO: playing sound: " + sound_key);
+        if (Array.isArray(sound_key)) {
+            sound_key = sound_key[Math.floor(sound_key.length * Math.random())]
+        }
+        // console.log("INFO: playing sound: " + sound_key);
         if (this.active_sound != null) {
             this.active_sound.stop();
             this.active_sound = null;

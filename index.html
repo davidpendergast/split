@@ -197,7 +197,7 @@ function anyKeyDown (event) {
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.SHIFT) {
         shift_held = true;
     }
-    sounds.play(game, sounds.all_sound_keys[rand_int(0, sounds.all_sound_keys.length)]);
+    // sounds.play(game, sounds.all_sound_keys[rand_int(0, sounds.all_sound_keys.length)]);
 }
 
 function update (time, delay) {
@@ -337,9 +337,10 @@ function update_playing_level_state (scene) {
     } else {
         update_player_line(scene);
         
-        var pts_on_line = active_level.get_points(player_line, 0);
+        var pts_on_line = active_level.get_particles_relative_to_line(player_line, 0, state_ticks);
         active_level.forEach(function (item, index) {
             if (pts_on_line.includes(item)) {
+                console.log("hiding pt: ", item);
                 item.set_is_light(false);
             } else {
                 item.set_is_light(true);
@@ -353,9 +354,23 @@ function update_playing_level_state (scene) {
 function update_locked_in_animation_state (scene) {
     set_bg(scene, BG_DARK, FG_LIVES[lives]);
     
-    var above = active_level.get_points(player_line, 1);
-    var on_line = active_level.get_points(player_line, 0);
-    var below = active_level.get_points(player_line, -1);
+    var current_ticks = state_ticks;
+    
+    var pause_dur_1 = 15;
+    var per_pair_dur = 10;
+    var pause_dur_2 = 5;
+    
+    var n_pts = active_level.particles.length;
+    
+    var above = active_level.get_particles_relative_to_line(player_line, 1);
+    var on_line = active_level.get_particles_relative_to_line(player_line, 0);
+    var below = active_level.get_particles_relative_to_line(player_line, -1);
+    
+    if (state_ticks == 0) {
+        console.log("above = ", above);
+        console.log("on_line = ", on_line);
+        console.log("below = ", below);
+    }
     
     while (on_line.length > 0) {
         var pt = on_line.pop();
@@ -367,18 +382,94 @@ function update_locked_in_animation_state (scene) {
     }
     
     var score = Math.abs(above.length - below.length);
-    console.log('INFO: score = ' + score);
     
-    if (score > 0) {
-        var lives_lost = Math.ceil(score / 2);
-        lives = Math.max(0, lives - lives_lost);
+    if (current_ticks < pause_dur_1) {
+        if (current_ticks == 0) {
+            console.log('INFO: score = ' + score);
+            sounds.play(scene, sounds.blips);
+        }
     }
+    current_ticks -= pause_dur_1;
     
-    if (lives > 0) {
-        level_num += 1;
-        next_state = STATE_GENERATING_LEVEL;
+    if (current_ticks >= 0 && current_ticks < per_pair_dur * Math.floor(n_pts / 2)) {
+        var n_to_hide = 1 + Math.floor(current_ticks / per_pair_dur);
+        var n_hidden_above = 0;
+        var n_hidden_on_line = 0;
+        var n_hidden_below = 0;
+        
+        for (var i = 0; i < n_to_hide; i++) {
+            var hid_above = false;
+            if (n_hidden_above < above.length) {
+                n_hidden_above++;
+                hid_above = true;
+            }
+            var hid_below = false;
+            if (n_hidden_below < below.length) {
+                n_hidden_below++;
+                hid_below = true;
+            }
+            var was_good = hid_above && hid_below;
+            if (hid_above && hid_below) {
+                was_good = true;
+            } else if (!hid_above && hid_below) {
+                if (n_hidden_on_line < on_line.length) {
+                    n_hidden_on_line++;
+                    was_good = true;
+                } else {
+                    n_hidden_below++;
+                    was_good = false;
+                }
+            } else if (hid_above && !hid_below) {
+                if (n_hidden_on_line < on_line.length) {
+                    n_hidden_on_line++;
+                    was_good = true;
+                } else {
+                    n_hidden_above++;
+                    was_good = false;
+                }
+            } else {
+                n_hidden_on_line += 2;
+                was_good = true;
+            }
+            
+            if (i == n_to_hide - 1 && (current_ticks % per_pair_dur == 0)) {
+                if (was_good) {
+                    sounds.play(scene, sounds.blips[0]);
+                } else {
+                    sounds.play(scene, sounds.negatives);
+                    lives = Math.max(0, lives - 1);
+                }
+            }    
+        }
+        
+        above.forEach((function (item, index) {
+            item.set_hidden(index < n_hidden_above);
+        }))
+        below.forEach((function (item, index) {
+            item.set_hidden(index < n_hidden_below);
+        }))
+        on_line.forEach((function (item, index) {
+            item.set_hidden(index < n_hidden_on_line);
+        }))
+    }
+    current_ticks -= per_pair_dur * Math.ceil(n_pts / 2);
+    
+    if (current_ticks >= 0 && current_ticks < pause_dur_2) {
+        // just pausing for a bit
+    }
+    current_ticks -= pause_dur_2;
+    
+    if (current_ticks >= 0) {
+        sounds.play(scene, sounds.odds);
+        if (lives > 0) {
+            level_num += 1;
+            next_state = STATE_GENERATING_LEVEL;
+        } else {
+            next_state = STATE_GAME_OVER;
+        }
     } else {
-        next_state = STATE_GAME_OVER;
+        // fake update just for the sprites
+        active_level.update(scene, null);
     }
 }
 
