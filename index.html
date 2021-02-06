@@ -62,6 +62,7 @@ var active_level;   // ParticleSet
 var score_display = [];
 var level_display = [];
 var time_bar = null;
+var time_bar_border = null;
     
 // background images
 const BG_DARK = 'bg_dark';
@@ -75,7 +76,7 @@ const FG_TUTORIAL_1 = 'fg_tutorial_1';
 const FG_TUTORIAL_2 = 'fg_tutorial_2';
 const FG_TUTORIAL_1_ALT = 'fg_tutorial_alt';
 const FG_LIVES = ['fg_lives_0', 'fg_lives_1', 'fg_lives_2', 'fg_lives_3', 'fg_lives_4',
-                  'fg_lives_5', 'fg_lives_6', 'fg_lives_7', 'fg_lives_8'];
+                  'fg_lives_5', 'fg_lives_6'];
 const FG_BLANK = 'fg_blank';
 const FG_GAME_OVER = 'fg_game_over';
 const FG_PERFECT = 'fg_perfect';
@@ -86,6 +87,7 @@ const PARTICLES_SHEET_LIGHT = 'particles_light';
 const PARTICLES_SHEET_DARK = 'particles_dark';
 const NUMBERS_SHEET = 'numbers_sheet';
 const TIME_BAR_SHEET = 'time_bar_sheet';
+const TIME_BAR_BORDER = 'time_bar_border';
 
 // anims
 const PARTICLE_ANIMS = []
@@ -146,6 +148,7 @@ function preload () {
     this.load.spritesheet(PARTICLES_SHEET_DARK, 'assets/particles_inverted.png', { frameWidth: 4, frameHeight: 4 });
     this.load.spritesheet(NUMBERS_SHEET, 'assets/numbers_light.png', { frameWidth: 4, frameHeight: 7 });
     this.load.spritesheet(TIME_BAR_SHEET, 'assets/time_bar_light.png', { frameWidth: 54, frameHeight: 2});
+    this.load.image(TIME_BAR_BORDER, 'assets/time_bar_border.png');
     
     sounds.load_sounds(this);
 }
@@ -301,15 +304,26 @@ function draw_time_bar(scene, pcnt_full) {
             time_bar.destroy();
             time_bar = null;
         }
+        if (time_bar_border != null) {
+            time_bar_border.destroy();
+            time_bar_border = null;
+        }
     } else {
         if (time_bar == null) {
             time_bar = scene.add.sprite(0, 0, TIME_BAR_SHEET);
+        }
+        if (time_bar_border == null) {
+            time_bar_border = scene.add.sprite(0, 0, TIME_BAR_BORDER);
         }
         var N = 28;  // not sure how to ask the spritesheet how many frames it has
         time_bar.setOrigin(0, 0);
         time_bar.setPosition(15, 45);
         time_bar.setFrame(Math.max(0, Math.min(N-1, Math.floor(N * (1 - pcnt_full)))));
-        time_bar.setDepth(1001);  // above foreground
+        time_bar.setDepth(1002);  // above foreground
+        
+        time_bar_border.setOrigin(0, 0);
+        time_bar_border.setPosition(9, 43);
+        time_bar_border.setDepth(1001);
     }
 }
 
@@ -324,7 +338,7 @@ function reset (scene) {
         active_level.destroy(scene);
         active_level = null;
     }
-    lives = 8;
+    lives = 6;
     level_num = 0;
     time_remaining = 0;
     current_score = 0;
@@ -428,7 +442,8 @@ function get_level_fg () {
     if (level_num == 0) {
         return FG_TUTORIAL_2;
     } else {
-        return FG_LIVES[lives];
+        var idx = Math.max(0, Math.min(FG_LIVES.length - 1, lives));
+        return FG_LIVES[idx];
     }
 } 
 
@@ -620,7 +635,8 @@ function update_perfect_split_state (scene) {
     var current_ticks = state_ticks;
     
     var time_limit = get_time_limit_for_level(level_num);
-    var total_additional_score = 10 * Math.min(10, Math.floor(11 * time_remaining / time_limit));
+    var pt_multiplier = Math.floor(active_level.particles.length / 2)
+    var total_additional_score = 10 * pt_multiplier * Math.min(10, Math.floor(11 * time_remaining / time_limit));
     
     if (current_ticks < tally_duration) {
         var pcnt_done = current_ticks / tally_duration;
