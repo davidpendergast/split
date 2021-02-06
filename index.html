@@ -95,7 +95,7 @@ const STATE_PLAYING_LEVEL = 4;
 const STATE_LOCKED_IN_ANIMATION = 5;
 const STATE_PERFECT_SPLIT = 6;
 const STATE_GAME_OVER = 7;
-const STATE_CREDITS = 8;
+const STATE_SCORE_DISPLAY = 8;
 
 const USER_CONTROLLED_ROTATION = false;
     
@@ -348,6 +348,8 @@ function real_update (scene) {
                 update_perfect_split_state(scene); break;
             case STATE_GAME_OVER:
                 update_game_over_state(scene); break;
+            case STATE_SCORE_DISPLAY:
+                update_score_display_state(scene); break;
             default:
                 console.log("WARN: unrecognized state: " + cur_state);
                 reset(scene);
@@ -487,9 +489,7 @@ function update_locked_in_animation_state (scene) {
     var score = Math.abs(above.length - below.length);
     
     if (current_ticks < pause_dur_1) {
-        if (current_ticks == 0) {
-            console.log('INFO: imbalance = ' + score);
-        }
+        // nothin'
     }
     current_ticks -= pause_dur_1;
     
@@ -621,13 +621,38 @@ function update_perfect_split_state (scene) {
 }
 
 function update_game_over_state (scene) {
-    set_bg(scene, BG_LIGHT, FG_GAME_OVER);  // TODO
+    set_bg(scene, BG_LIGHT, FG_GAME_OVER);
     active_level.destroy();
     player_line.destroy();
     
-    console.log('INFO game over! level: ' + level_num);
+    if (state_ticks == 0) {
+        sounds.play(sounds.bad_melody);
+        console.log('INFO: game over!');
+    }
+    
+    var duration = 20;
+    
+    if (state_ticks > duration || enter_pressed) {
+        sounds.play(scene, sounds.blips);
+        next_state = STATE_SCORE_DISPLAY;
+    }
+}
+
+function update_score_display_state (scene) {
+    set_bg(scene, BG_DARK, FG_SCORE);
+    
+    active_level.destroy();
+    player_line.destroy();
+    
+    if (state_ticks == 0) {
+        console.log('INFO: score=', current_score, ", level= ", level_num);
+    }
+    
+    draw_level(scene, level_num);
+    draw_score(scene, current_score);
     
     if (enter_pressed) {
+        sounds.play(scene, sounds.blips);
         reset(scene);
     }
 }
