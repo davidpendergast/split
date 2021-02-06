@@ -43,10 +43,6 @@ var config = {
     zoom: 8
 };
 
-var cursors;
-var score = 0;
-var scoreText;
-
 var bg_image;
 var fg_image;
     
@@ -97,8 +93,9 @@ const STATE_TUTORIAL = 2;
 const STATE_GENERATING_LEVEL = 3;
 const STATE_PLAYING_LEVEL = 4;
 const STATE_LOCKED_IN_ANIMATION = 5;
-const STATE_GAME_OVER = 6;
-const STATE_CREDITS = 7;
+const STATE_PERFECT_SPLIT = 6;
+const STATE_GAME_OVER = 7;
+const STATE_CREDITS = 8;
 
 const USER_CONTROLLED_ROTATION = false;
     
@@ -119,7 +116,8 @@ var shift_held = false;
 // other variables
 var lives;
 var level_num;
-var time_remaining = 0;
+var time_remaining;
+var current_score;
     
     
 function preload () {
@@ -138,7 +136,7 @@ function preload () {
     } 
     this.load.spritesheet(PARTICLES_SHEET_LIGHT, 'assets/particles.png', { frameWidth: 4, frameHeight: 4 });
     this.load.spritesheet(PARTICLES_SHEET_DARK, 'assets/particles_inverted.png', { frameWidth: 4, frameHeight: 4 });
-    this.load.spritesheet(NUMBERS_SHEET, 'assets/numbers_light.png', { frameWidth: 4, frameHeight: 5 });
+    this.load.spritesheet(NUMBERS_SHEET, 'assets/numbers_light.png', { frameWidth: 4, frameHeight: 7 });
     this.load.spritesheet(TIME_BAR_SHEET, 'assets/time_bar_light.png', { frameWidth: 54, frameHeight: 2});
     
     sounds.load_sounds(this);
@@ -256,8 +254,8 @@ function get_time_limit_for_level(level_num) {
     return Math.max(end, Math.min(start, end + (1 - pct) * (start - end)));
 }
 
-function draw_time_bar(scene, pcnt) {
-    if (pcnt == null) {
+function draw_time_bar(scene, pcnt_full) {
+    if (pcnt_full == null) {
         if (time_bar != null) {
             time_bar.destroy();
             time_bar = null;
@@ -269,7 +267,7 @@ function draw_time_bar(scene, pcnt) {
         var N = 28;  // not sure how to ask the spritesheet how many frames it has
         time_bar.setOrigin(0, 0);
         time_bar.setPosition(15, 45);
-        time_bar.setFrame(Math.max(0, Math.min(N-1, Math.floor(N * pcnt))));
+        time_bar.setFrame(Math.max(0, Math.min(N-1, Math.floor(N * (1 - pcnt_full)))));
         time_bar.setDepth(1001);  // above foreground
     }
 }
@@ -287,6 +285,8 @@ function reset (scene) {
     }
     lives = 8;
     level_num = 0;
+    time_remaining = 0;
+    current_score = 0;
 }
     
 function real_update (scene) {
@@ -316,6 +316,8 @@ function real_update (scene) {
                 update_playing_level_state(scene); break;
             case STATE_LOCKED_IN_ANIMATION:
                 update_locked_in_animation_state(scene); break;
+            case STATE_PERFECT_SPLIT:
+                update_perfect_split_state(scene); break;
             case STATE_GAME_OVER:
                 update_game_over_state(scene); break;
             default:
@@ -366,6 +368,9 @@ function get_level_fg () {
 } 
 
 function update_generating_level_state (scene) {
+    if (state_ticks == 0) {
+        sounds.play(scene, sounds.odds);
+    }
     set_bg(scene, BG_DARK, get_level_fg());
     if (active_level != null) {
         active_level.destroy(scene);
@@ -400,10 +405,11 @@ function update_playing_level_state (scene) {
         time_remaining = time_limit;
     } else if (level_num != 0) {
         time_remaining -= 1;
-        draw_time_bar(scene, 1 - time_remaining / time_limit);
+        draw_time_bar(scene, time_remaining / time_limit);
     }
     
     if (enter_pressed || time_remaining <= 0) {
+        sounds.play(scene, sounds.blips);
         next_state = STATE_LOCKED_IN_ANIMATION;
     } else {
         update_player_line(scene);
@@ -426,7 +432,7 @@ function update_locked_in_animation_state (scene) {
     
     var time_limit = get_time_limit_for_level(level_num)
     if (level_num != 0) {
-        draw_time_bar(scene, 1 - time_remaining / time_limit);
+        draw_time_bar(scene, time_remaining / time_limit);
     }
     
     var current_ticks = state_ticks;
@@ -454,8 +460,7 @@ function update_locked_in_animation_state (scene) {
     
     if (current_ticks < pause_dur_1) {
         if (current_ticks == 0) {
-            console.log('INFO: score = ' + score);
-            sounds.play(scene, sounds.blips);
+            console.log('INFO: imbalance = ' + score);
         }
     }
     current_ticks -= pause_dur_1;
@@ -529,17 +534,62 @@ function update_locked_in_animation_state (scene) {
     current_ticks -= pause_dur_2;
     
     if (current_ticks >= 0) {
-        sounds.play(scene, sounds.odds);
         if (lives > 0) {
-            level_num += 1;
-            next_state = STATE_GENERATING_LEVEL;
+            if (score != 0) {
+                level_num += 1;
+                next_state = STATE_GENERATING_LEVEL;
+            } else {
+                next_state = STATE_PERFECT_SPLIT;
+            }
         } else {
+            sounds.play(scene, sounds.odds);
             next_state = STATE_GAME_OVER;
         }
     } else {
         // fake update just for the sprites
         active_level.update(scene, null);
     }
+}
+
+function update_perfect_split_state (scene) {
+    set_bg(scene, BG_DARK, FG_PERFECT);
+    var tally_duration = 15;
+    var pause_duration = 5;
+    var current_ticks = state_ticks;
+    
+    var time_limit = get_time_limit_for_level(level_num);
+    var total_additional_score = 10 * Math.min(10, Math.floor(11 * time_remaining / time_limit));
+    
+    if (current_ticks < tally_duration) {
+        var pcnt_done = current_ticks / tally_duration;
+        var last_additional_score = current_ticks == 0 ? 0 : Math.floor(total_additional_score * (current_ticks - 1) / tally_duration);
+        var cur_additional_score = Math.floor(total_additional_score * pcnt_done);
+        if (cur_additional_score != last_additional_score) {
+            sounds.play(scene, sounds.blips);  // beep once per point increment
+        }
+        draw_score(scene, current_score + cur_additional_score);
+        draw_level(scene, level_num);
+        draw_time_bar(scene, (1 - pcnt_done) * time_remaining / time_limit);
+    }
+    current_ticks -= tally_duration;
+    
+    if (current_ticks == 0) {
+        // update the real score
+        current_score += total_additional_score;
+    }
+    if (current_ticks >= 0 && current_ticks < pause_duration) {
+        draw_score(scene, current_score);
+        draw_level(scene, level_num);
+        draw_time_bar(scene, null);
+    }
+    current_ticks -= pause_duration;
+    
+    if (current_ticks >= 0) {
+        level_num += 1;
+        next_state = STATE_GENERATING_LEVEL;
+    }
+
+    // player_line.destroy();
 }
 
 function update_game_over_state (scene) {
