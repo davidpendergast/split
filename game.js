@@ -204,21 +204,40 @@ class FixedParticle extends Particle {
 
 class EllipseParticle extends Particle {
 
-    constructor(p1, p2, period_secs, offset, game_area) {
-        super(2, game_area);
+    constructor(p1, p2, period_secs, offset, dir, game_area) {
+        super(dir >= 0 ? 2 : 4, game_area);
         this.rect = Phaser.Geom.Rectangle.FromXY(p1.x, p1.y, p2.x, p2.y);
         this.period = period_secs * 30;
         this.offset = offset;
+        this.dir = dir;
     }
     
     get_raw_pos(tick) {
         var cx = this.rect.centerX;
         var cy = this.rect.centerY;
-        var angle = 2 * Math.PI * (this.offset + tick / this.period);
+        var angle = 2 * Math.PI * (this.offset + this.dir * tick / this.period);
         var x = cx + this.rect.width / 2 * Math.cos(angle);
         var y = cy + this.rect.height / 2 * Math.sin(angle);
-        var res = new Phaser.Geom.Point(x, y);
-        return res;
+        return new Phaser.Geom.Point(x, y);
+    }
+}
+
+
+class LineParticle extends Particle {
+
+    constructor (p1, p2, period_secs, offset, game_area) {
+        super(3, game_area);
+        this.p1 = p1;
+        this.p2 = p2;
+        this.period = period_secs * 30;
+        this.offset = offset;
+    }
+    
+    get_raw_pos(tick) {
+        var prog = 0.5 * (1 + Math.cos(2 * Math.PI * (this.offset + tick / this.period)));
+        var x = this.p1.x + prog * (this.p2.x - this.p1.x);
+        var y = this.p1.y + prog * (this.p2.y - this.p1.y);
+        return new Phaser.Geom.Point(x, y);
     }
 }
 
@@ -293,18 +312,23 @@ class ParticleSet {
 
 const FIXED____ = "FIXED";
 const ELLIPSE__ = "ELLIPSE";
+const LINE_____ = "LINE";
+const ELLIP_CCW = "ELLIPSE_CCW";
 
 const WEIGHTS = new Map();
-WEIGHTS.set(FIXED____, [10, 10, 10, 10, 10, 10, 10, 10,  9,  8,  7,  6,  5,  5,  5]);
-WEIGHTS.set(ELLIPSE__, [ 0,  0, 5,   7, 10, 15, 20, 15, 15, 15,  5,  5,  5,  5,  5]);
+WEIGHTS.set(FIXED____, [10, 10, 10, 10, 10, 10, 10, 10,  9,  8,  7,  6,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5,  5]);
+WEIGHTS.set(ELLIPSE__, [ 0,  5, 6,   7, 10, 15, 20, 15, 15, 15, 10, 10, 10,  7,  5,  5,  5,  5,  5,  5,  5,  5,  5]);
+WEIGHTS.set(ELLIP_CCW, [ 0,  0, 0,   0,  0,  0,  0,  0,  0,  5, 15, 15, 15, 10, 10, 10,  5,  5,  5,  5,  5,  5,  5]);
+WEIGHTS.set(LINE_____, [ 0,  0, 0,   0,  0,  0,  0,  5, 10, 15, 10, 10, 10,  7,  5,  5,  5,  5,  5,  5,  5,  5,  5]);
 
 function get_weights_for_level(level_num) {
     var res = new Map();
+    var idx = level_num;
     WEIGHTS.forEach((function (value, key) {
-        if (level_num >= value.length) {
+        if (idx >= value.length) {
             res.set(key, value[value.length - 1]);
         } else {
-            res.set(key, value[level_num]);
+            res.set(key, value[idx]);
         }
     }));
     return res;
@@ -351,7 +375,29 @@ function build_particles(game_area, particle_types) {
             var p2 = pts[i * 2 + 1];
             var r = Math.random();
             var period = 4
-            res.push(new EllipseParticle(p1, p2, period, r, game_area));
+            res.push(new EllipseParticle(p1, p2, period, r, 1, game_area));
+        }
+    }
+    
+    if (counts.has(ELLIP_CCW)) {
+        var pts = game_area.rand_points(counts.get(ELLIP_CCW) * 2, true);
+        for (var i = 0; i < pts.length / 2; i++) {
+            var p1 = pts[i * 2];
+            var p2 = pts[i * 2 + 1];
+            var r = Math.random();
+            var period = 3
+            res.push(new EllipseParticle(p1, p2, period, r, -1, game_area));
+        }
+    }
+    
+    if (counts.has(LINE_____)) {
+        var pts = game_area.rand_points(counts.get(LINE_____) * 2, true);
+        for (var i = 0; i < pts.length / 2; i++) {
+            var p1 = pts[i * 2];
+            var p2 = pts[i * 2 + 1];
+            var r = Math.random();
+            var period = 4
+            res.push(new LineParticle(p1, p2, period, r, game_area));
         }
     }
     
@@ -359,9 +405,9 @@ function build_particles(game_area, particle_types) {
 }
 
 function gen_num_particles(level_num) {
-    var avg = 2 + Math.sqrt(3 * level_num);
+    var avg = 2 + Math.sqrt(2 * level_num);
     var min = 2
-    var variance = Math.floor(level_num / 10);
+    var variance = 0; // Math.floor(level_num / 10);
     var res = Math.max(min, Math.round(avg + 2 * (0.5 - Math.random()) * variance))
     res -= res % 2;
     return res;

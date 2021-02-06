@@ -169,8 +169,7 @@ function create_particle_anims(scene) {
     var size = 4;
     var xdims = 21;
     var ydims = 12;
-    var i;
-    for (i = 0; i < 9; i++) {
+    for (var i = 0; i < 9; i++) {
         var light_key = 'particle_light_' + i;
         var dark_key = 'particle_dark_' + i;
         var start_frame = i * xdims;
@@ -442,10 +441,14 @@ function get_level_fg () {
     if (level_num == 0) {
         return FG_TUTORIAL_2;
     } else {
-        var idx = Math.max(0, Math.min(FG_LIVES.length - 1, lives));
-        return FG_LIVES[idx];
+        return get_lives_fg();
     }
-} 
+}
+
+function get_lives_fg() {
+    var idx = Math.max(0, Math.min(FG_LIVES.length - 1, lives));
+    return FG_LIVES[idx];
+}
 
 function update_generating_level_state (scene) {
     if (state_ticks == 0) {
@@ -462,6 +465,7 @@ function update_generating_level_state (scene) {
 
 function update_player_line(scene) {
     var rot_dir = 0;
+    var rot = 0;
     if (USER_CONTROLLED_ROTATION) {
         if (left_held) {
             rot_dir -= 1;
@@ -469,10 +473,11 @@ function update_player_line(scene) {
         if (right_held) {
             rot_dir += 1;
         }
+        rot = rot_dir * (shift_held ? slow_rotate_speed : rotate_speed); 
     } else {
         rot_dir = 1;
+        rot = rot_dir * rotate_speed; 
     }
-    var rot = rot_dir * (shift_held ? slow_rotate_speed : rotate_speed); 
     player_line.rotate(rot);
     player_line.update(scene, state_ticks);
 }
@@ -508,7 +513,7 @@ function update_playing_level_state (scene) {
 }
 
 function update_locked_in_animation_state (scene) {
-    set_bg(scene, BG_DARK, FG_LIVES[lives]);
+    set_bg(scene, BG_DARK, get_lives_fg());
     
     var time_limit = get_time_limit_for_level(level_num)
     if (level_num != 0) {
@@ -516,12 +521,22 @@ function update_locked_in_animation_state (scene) {
     }
     
     var current_ticks = state_ticks;
+    var n_pts = active_level.particles.length;
     
     var pause_dur_1 = 15;
-    var per_pair_dur = 10;
     var pause_dur_2 = 5;
+    var per_pair_dur;
     
-    var n_pts = active_level.particles.length;
+    var max_per_pair_dur = 10;
+    var min_per_pair_dur = 2;
+    if (n_pts <= 6) {
+        per_pair_dur = max_per_pair_dur;
+    } else if (n_pts >= 16) {  // this is level 100 or so
+        per_pair_dur = min_per_pair_dur;
+    } else {
+        var prog = (n_pts - 6) / (16 - 6);
+        per_pair_dur = min_per_pair_dur + Math.round((max_per_pair_dur - min_per_pair_dur) * (1 - prog));
+    }
     
     var above = active_level.get_particles_relative_to_line(player_line, 1);
     var on_line = active_level.get_particles_relative_to_line(player_line, 0);
@@ -686,7 +701,7 @@ function update_game_over_state (scene) {
         console.log('INFO: game over!');
     }
     
-    if (state_ticks > inc * 3 || enter_pressed) {
+    if (state_ticks > inc * 4 || enter_pressed) {
         sounds.play(scene, sounds.blips);
         next_state = STATE_SCORE_DISPLAY;
     }
