@@ -218,7 +218,6 @@ class EllipseParticle extends Particle {
         var x = cx + this.rect.width / 2 * Math.cos(angle);
         var y = cy + this.rect.height / 2 * Math.sin(angle);
         var res = new Phaser.Geom.Point(x, y);
-        console.log('pos = ', res);
         return res;
     }
 }

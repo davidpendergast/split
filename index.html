@@ -61,6 +61,11 @@ var sounds = new SoundManager();
 var player_line;    // PlayerLine
 var game_area;      // GameArea
 var active_level;   // ParticleSet
+
+// game objects
+var numbers_1 = [];
+var numbers_2 = [];
+var time_bar = null;
     
 // background images
 const BG_DARK = 'bg_dark';
@@ -114,6 +119,7 @@ var shift_held = false;
 // other variables
 var lives;
 var level_num;
+var time_remaining = 0;
     
     
 function preload () {
@@ -126,7 +132,7 @@ function preload () {
     this.load.image(FG_GAME_OVER, 'assets/fg_game_over.png');
     this.load.image(FG_BLANK, 'assets/fg_blank.png');
     this.load.image(FG_PERFECT, 'assets/fg_perfect.png');
-    this.load.image(FG_SCORE, 'assets/fg_score.png');
+    this.load.image(FG_SCORE, 'assets/fg_score_display.png');
     for (var i = 0; i < FG_LIVES.length; i++) {
       this.load.image(FG_LIVES[i], 'assets/' + FG_LIVES[i] + '.png')
     } 
@@ -208,7 +214,6 @@ function anyKeyDown (event) {
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.SHIFT) {
         shift_held = true;
     }
-    // sounds.play(game, sounds.all_sound_keys[rand_int(0, sounds.all_sound_keys.length)]);
 }
 
 function update (time, delay) {
@@ -235,6 +240,40 @@ function set_bg(scene, bg_image_id, fg_image_id) {
     fg_image.setTexture(fg_image_id);
 }
 
+function draw_score(scene, score) {
+
+}
+
+function draw_level(scene, num) {
+
+}
+
+function get_time_limit_for_level(level_num) {
+    var start = 10 * 30;
+    var end = 3 * 30;
+    var end_level = 29;
+    var pct = level_num / end_level;
+    return Math.max(end, Math.min(start, end + (1 - pct) * (start - end)));
+}
+
+function draw_time_bar(scene, pcnt) {
+    if (pcnt == null) {
+        if (time_bar != null) {
+            time_bar.destroy();
+            time_bar = null;
+        }
+    } else {
+        if (time_bar == null) {
+            time_bar = scene.add.sprite(0, 0, TIME_BAR_SHEET);
+        }
+        var N = 28;  // not sure how to ask the spritesheet how many frames it has
+        time_bar.setOrigin(0, 0);
+        time_bar.setPosition(15, 45);
+        time_bar.setFrame(Math.max(0, Math.min(N-1, Math.floor(N * pcnt))));
+        time_bar.setDepth(1001);  // above foreground
+    }
+}
+
 function reset (scene) {
     next_state = STATE_TITLE_ANIMATED;
     if (player_line != null) {
@@ -255,6 +294,10 @@ function real_update (scene) {
         cur_state = next_state;
         state_ticks = 0;
         next_state = null;
+        
+        draw_time_bar(scene, null);
+        draw_score(scene, null);
+        draw_level(scene, null);
     }
     if (reset_pressed) {
         console.log("INFO: user requested a reset!");
@@ -309,6 +352,7 @@ function update_tutorial_state (scene) {
     update_player_line(scene);
     
     if (enter_pressed) {
+        sounds.play(scene, sounds.blips);
         next_state = STATE_GENERATING_LEVEL;
     }
 }
@@ -351,7 +395,15 @@ function update_player_line(scene) {
 function update_playing_level_state (scene) {
     set_bg(scene, BG_DARK, get_level_fg());
     
-    if (enter_pressed) {
+    var time_limit = get_time_limit_for_level(level_num)
+    if (state_ticks == 0) {
+        time_remaining = time_limit;
+    } else if (level_num != 0) {
+        time_remaining -= 1;
+        draw_time_bar(scene, 1 - time_remaining / time_limit);
+    }
+    
+    if (enter_pressed || time_remaining <= 0) {
         next_state = STATE_LOCKED_IN_ANIMATION;
     } else {
         update_player_line(scene);
@@ -359,7 +411,6 @@ function update_playing_level_state (scene) {
         var pts_on_line = active_level.get_particles_relative_to_line(player_line, 0, state_ticks);
         active_level.forEach(function (item, index) {
             if (pts_on_line.includes(item)) {
-                console.log("hiding pt: ", item);
                 item.set_is_light(false);
             } else {
                 item.set_is_light(true);
@@ -373,6 +424,11 @@ function update_playing_level_state (scene) {
 function update_locked_in_animation_state (scene) {
     set_bg(scene, BG_DARK, FG_LIVES[lives]);
     
+    var time_limit = get_time_limit_for_level(level_num)
+    if (level_num != 0) {
+        draw_time_bar(scene, 1 - time_remaining / time_limit);
+    }
+    
     var current_ticks = state_ticks;
     
     var pause_dur_1 = 15;
@@ -384,12 +440,6 @@ function update_locked_in_animation_state (scene) {
     var above = active_level.get_particles_relative_to_line(player_line, 1);
     var on_line = active_level.get_particles_relative_to_line(player_line, 0);
     var below = active_level.get_particles_relative_to_line(player_line, -1);
-    
-    if (state_ticks == 0) {
-        console.log("above = ", above);
-        console.log("on_line = ", on_line);
-        console.log("below = ", below);
-    }
     
     while (on_line.length > 0) {
         var pt = on_line.pop();
