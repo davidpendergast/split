@@ -68,14 +68,19 @@ const BG_LIGHT = 'bg_light';
 const FG_TITLE = 'fg_title';
 const FG_TUTORIAL_1 = 'fg_tutorial_1';
 const FG_TUTORIAL_2 = 'fg_tutorial_2';
+const FG_TUTORIAL_1_ALT = 'fg_title_alt';
 const FG_LIVES = ['fg_lives_0', 'fg_lives_1', 'fg_lives_2', 'fg_lives_3', 'fg_lives_4',
                   'fg_lives_5', 'fg_lives_6', 'fg_lives_7', 'fg_lives_8'];
 const FG_BLANK = 'fg_blank';
 const FG_GAME_OVER = 'fg_game_over';
+const FG_PERFECT = 'fg_perfect';
+const FG_SCORE = 'fg_score';
 
 // object images
 const PARTICLES_SHEET_LIGHT = 'particles_light';
 const PARTICLES_SHEET_DARK = 'particles_dark';
+const NUMBERS_SHEET = 'numbers_sheet';
+const TIME_BAR_SHEET = 'time_bar_sheet';
 
 // anims
 const PARTICLE_ANIMS = []
@@ -89,6 +94,8 @@ const STATE_PLAYING_LEVEL = 4;
 const STATE_LOCKED_IN_ANIMATION = 5;
 const STATE_GAME_OVER = 6;
 const STATE_CREDITS = 7;
+
+const USER_CONTROLLED_ROTATION = false;
     
 // game state vars
 var cur_state;
@@ -115,14 +122,18 @@ function preload () {
     this.load.image(FG_TUTORIAL_1, 'assets/fg_tutorial.png');
     this.load.image(FG_TUTORIAL_2, 'assets/fg_tutorial_2.png');
     this.load.image(FG_TITLE, 'assets/fg_title.png');
+    this.load.image(FG_TUTORIAL_1_ALT, 'assets/fg_tutorial_alt.png');
     this.load.image(FG_GAME_OVER, 'assets/fg_game_over.png');
     this.load.image(FG_BLANK, 'assets/fg_blank.png');
-    var i;
-    for (i = 0; i < FG_LIVES.length; i++) {
+    this.load.image(FG_PERFECT, 'assets/fg_perfect.png');
+    this.load.image(FG_SCORE, 'assets/fg_score.png');
+    for (var i = 0; i < FG_LIVES.length; i++) {
       this.load.image(FG_LIVES[i], 'assets/' + FG_LIVES[i] + '.png')
     } 
     this.load.spritesheet(PARTICLES_SHEET_LIGHT, 'assets/particles.png', { frameWidth: 4, frameHeight: 4 });
     this.load.spritesheet(PARTICLES_SHEET_DARK, 'assets/particles_inverted.png', { frameWidth: 4, frameHeight: 4 });
+    this.load.spritesheet(NUMBERS_SHEET, 'assets/numbers_light.png', { frameWidth: 4, frameHeight: 5 });
+    this.load.spritesheet(TIME_BAR_SHEET, 'assets/time_bar_light.png', { frameWidth: 54, frameHeight: 2});
     
     sounds.load_sounds(this);
 }
@@ -289,7 +300,11 @@ function update_static_title_state (scene) {
 }
 
 function update_tutorial_state (scene) {
-    set_bg(scene, BG_DARK, FG_TUTORIAL_1);
+    if (USER_CONTROLLED_ROTATION) {
+        set_bg(scene, BG_DARK, FG_TUTORIAL_1);
+    } else {
+        set_bg(scene, BG_DARK, FG_TUTORIAL_1_ALT);
+    }
     
     update_player_line(scene);
     
@@ -318,11 +333,15 @@ function update_generating_level_state (scene) {
 
 function update_player_line(scene) {
     var rot_dir = 0;
-    if (left_held) {
-        rot_dir -= 1;
-    }
-    if (right_held) {
-        rot_dir += 1;
+    if (USER_CONTROLLED_ROTATION) {
+        if (left_held) {
+            rot_dir -= 1;
+        }
+        if (right_held) {
+            rot_dir += 1;
+        }
+    } else {
+        rot_dir = 1;
     }
     var rot = rot_dir * (shift_held ? slow_rotate_speed : rotate_speed); 
     player_line.rotate(rot);

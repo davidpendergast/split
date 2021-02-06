@@ -205,7 +205,7 @@ class FixedParticle extends Particle {
 class EllipseParticle extends Particle {
 
     constructor(p1, p2, period_secs, offset, game_area) {
-        super(0, game_area);
+        super(2, game_area);
         this.rect = Phaser.Geom.Rectangle.FromXY(p1.x, p1.y, p2.x, p2.y);
         this.period = period_secs * 30;
         this.offset = offset;
