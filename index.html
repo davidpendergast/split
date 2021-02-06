@@ -59,8 +59,8 @@ var game_area;      // GameArea
 var active_level;   // ParticleSet
 
 // game objects
-var numbers_1 = [];
-var numbers_2 = [];
+var score_display = [];
+var level_display = [];
 var time_bar = null;
     
 // background images
@@ -239,11 +239,39 @@ function set_bg(scene, bg_image_id, fg_image_id) {
 }
 
 function draw_score(scene, score) {
-
+    update_number_display(scene, score_display, score, 34, 5);
 }
 
 function draw_level(scene, num) {
+    if (num != null) {
+        num += 1;
+    }
+    update_number_display(scene, level_display, num, 34, 21);
+}
 
+function update_number_display(scene, array, number, x, y) {
+    if (number == null) {
+        number = "";
+    } else {
+        number = Math.floor(Math.max(0, number)).toString();
+    }
+    while (array.length > number.length) {
+        var item = array.pop();
+        item.destroy();
+    }
+    while (array.length < number.length) {
+        var item = scene.add.sprite(0, 0, NUMBERS_SHEET);
+        array.push(item);
+    }
+    for (var i = 0; i < array.length; i++) {
+        var item = array[i];
+        var val = parseInt(number[i]);
+        
+        item.setFrame(val);
+        item.setPosition(x + i * 4, y);
+        item.setDepth(1001);
+        item.setOrigin(0, 0);
+    }
 }
 
 function get_time_limit_for_level(level_num) {
