@@ -66,10 +66,14 @@ var time_bar = null;
 // background images
 const BG_DARK = 'bg_dark';
 const BG_LIGHT = 'bg_light';
+const BG_MEDIUM = 'bg_medium';
+const BG_ART_1 = 'bg_art_1';
+const BG_ART_2 = 'bg_art_2';
 const FG_TITLE = 'fg_title';
+const FG_TITLE_PROMPT = 'fg_title_prompt';
 const FG_TUTORIAL_1 = 'fg_tutorial_1';
 const FG_TUTORIAL_2 = 'fg_tutorial_2';
-const FG_TUTORIAL_1_ALT = 'fg_title_alt';
+const FG_TUTORIAL_1_ALT = 'fg_tutorial_alt';
 const FG_LIVES = ['fg_lives_0', 'fg_lives_1', 'fg_lives_2', 'fg_lives_3', 'fg_lives_4',
                   'fg_lives_5', 'fg_lives_6', 'fg_lives_7', 'fg_lives_8'];
 const FG_BLANK = 'fg_blank';
@@ -123,9 +127,13 @@ var current_score;
 function preload () {
     this.load.image(BG_DARK, 'assets/bg_dark.png');
     this.load.image(BG_LIGHT, 'assets/bg_light.png');
+    this.load.image(BG_MEDIUM, 'assets/bg_medium.png');
+    this.load.image(BG_ART_1, 'assets/bg_intro_scene_0.png');
+    this.load.image(BG_ART_2, 'assets/bg_intro_scene_1.png');
     this.load.image(FG_TUTORIAL_1, 'assets/fg_tutorial.png');
     this.load.image(FG_TUTORIAL_2, 'assets/fg_tutorial_2.png');
     this.load.image(FG_TITLE, 'assets/fg_title.png');
+    this.load.image(FG_TITLE_PROMPT, 'assets/fg_title_with_prompt.png');
     this.load.image(FG_TUTORIAL_1_ALT, 'assets/fg_tutorial_alt.png');
     this.load.image(FG_GAME_OVER, 'assets/fg_game_over.png');
     this.load.image(FG_BLANK, 'assets/fg_blank.png');
@@ -235,7 +243,12 @@ function rand_int(min_inclusive, max_exclusive) {
 
 function set_bg(scene, bg_image_id, fg_image_id) {
     bg_image.setTexture(bg_image_id);
-    fg_image.setTexture(fg_image_id);
+    if (fg_image_id == null) {
+        fg_image.visible = false;
+    } else {
+        fg_image.visible = true;
+        fg_image.setTexture(fg_image_id);
+    }
 }
 
 function draw_score(scene, score) {
@@ -358,18 +371,40 @@ function real_update (scene) {
     state_ticks++;
 }
 
+function get_art_bg (scene) {
+    if (Math.floor(total_ticks / 15) % 2 == 0) {
+        return BG_ART_1;
+    } else {
+        return BG_ART_2;
+    }
+}
+
 function update_animated_title_state (scene) {
-    set_bg(scene, BG_LIGHT, FG_TITLE);
+    set_bg(scene, get_art_bg(scene), null);
     
-    if (enter_pressed) {
+    if (state_ticks == 0) {
+        sounds.play(scene, sounds.bad_melody);
+    }
+    
+    if (enter_pressed || state_ticks > 2 * 30) {
+        sounds.play(scene, sounds.blips);
         next_state = STATE_TITLE_STATIC;
     }
 }       
 
 function update_static_title_state (scene) {
-    set_bg(scene, BG_LIGHT, FG_TITLE);
+    var title_img = FG_TITLE;
+    if (state_ticks > 30) {
+        if (Math.floor(state_ticks / 15) % 2 == 0) {
+            title_img = FG_TITLE_PROMPT;
+        } else {
+            title_img = FG_TITLE;
+        }
+    }
+    set_bg(scene, get_art_bg(scene), title_img);
     
     if (enter_pressed) {
+        sounds.play(scene, sounds.blips);
         next_state = STATE_TUTORIAL;
     }
 }
@@ -570,7 +605,6 @@ function update_locked_in_animation_state (scene) {
                 next_state = STATE_PERFECT_SPLIT;
             }
         } else {
-            sounds.play(scene, sounds.odds);
             next_state = STATE_GAME_OVER;
         }
     } else {
@@ -616,23 +650,27 @@ function update_perfect_split_state (scene) {
         level_num += 1;
         next_state = STATE_GENERATING_LEVEL;
     }
-
-    // player_line.destroy();
 }
 
 function update_game_over_state (scene) {
-    set_bg(scene, BG_LIGHT, FG_GAME_OVER);
+    var inc = 10;
+    var bg_img = BG_LIGHT;
+    if (state_ticks > 2 * inc) {
+        bg_img = BG_DARK;
+    } else if (state_ticks > inc) {
+        bg_img = BG_MEDIUM;
+    }
+    
+    set_bg(scene, bg_img, FG_GAME_OVER);
     active_level.destroy();
     player_line.destroy();
     
     if (state_ticks == 0) {
-        sounds.play(sounds.bad_melody);
+        sounds.play(scene, sounds.unrealistic);
         console.log('INFO: game over!');
     }
     
-    var duration = 20;
-    
-    if (state_ticks > duration || enter_pressed) {
+    if (state_ticks > inc * 3 || enter_pressed) {
         sounds.play(scene, sounds.blips);
         next_state = STATE_SCORE_DISPLAY;
     }
