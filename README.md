@@ -1,6 +1,8 @@
 # SPLIT
-A game about division. Entry to Nokia Jam 3.
+A game about splitting. Entry to Nokia Jam 3.
 
 (Also the first time I've ever written javascript~)
 
-![07-intro-and-polish.gif](gifs/07-intro-and-polish.gif?raw=true "07-intro-and-polish")
+This project is released! Play it at: [itch.io](https://ghastly.itch.io/split)
+
+![preview.gif](gifs/preview.gif?raw=true "preview")
