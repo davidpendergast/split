@@ -206,15 +206,18 @@ function anyKeyDown (event) {
             || event.keyCode === Phaser.Input.Keyboard.KeyCodes.D) {
         right_held = true;
         right_pressed = true;
+        event.preventDefault();
     }
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.LEFT 
             || event.keyCode === Phaser.Input.Keyboard.KeyCodes.A) {
         left_held = true;
         left_pressed = true;
+        event.preventDefault();
     }
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.ENTER 
             || event.keyCode === Phaser.Input.Keyboard.KeyCodes.SPACE) {
         enter_pressed = true;
+        event.preventDefault();  // prevent ENTER from scrolling the page...
     }
     if (event.keyCode === Phaser.Input.Keyboard.KeyCodes.R) {
         reset_pressed = true;

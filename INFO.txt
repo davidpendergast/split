@@ -1,0 +1,32 @@
+
+                    @--------------------------------------@
+                    |                 SPLIT                |
+                    |               by Ghast               |
+                    @--------------------------------------@
+
+Divide the particles into equal groups! Speed and accuracy = higher score.
+
+Points on the dividing line are counted towards the optimal group.
+(You can tell whether a point is on the line by its color). 
+
+If you create an unbalanced split, you'll lose lives and get no points.
+After all lives are lost, the game is over. 
+
+Tip: landing a couple points on the line will make splitting more forgiving
+     at higher levels. But try not to miss!
+
+
+Controls:
+    Enter or Space to SPLIT
+    R to restart
+  
+  
+Made between Feb 1 - Feb 7, 2021 for Nokia Jam 3: https://itch.io/jam/nokiajam3
+
+Art and programming by Ghast: 
+    https://twitter.com/Ghast_NEOH
+    https://ghastly.itch.io/
+    
+Sound effects are from the "TRIX SOUND PACK":
+    https://phillipp.itch.io/nokiajamresources
+    Made by https://twitter.com/Trixelized
