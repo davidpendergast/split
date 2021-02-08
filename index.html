@@ -398,12 +398,10 @@ function get_art_bg (scene) {
 function update_animated_title_state (scene) {
     set_bg(scene, get_art_bg(scene), null);
     
-    if (state_ticks == 0) {
-        sounds.play(scene, sounds.bad_melody);
-    }
-    
     if (enter_pressed || state_ticks > 2 * 30) {
-        sounds.play(scene, sounds.blips);
+        if (enter_pressed) {
+            sounds.play(scene, sounds.blips);
+        }
         next_state = STATE_TITLE_STATIC;
     }
 }       
@@ -420,7 +418,7 @@ function update_static_title_state (scene) {
     set_bg(scene, get_art_bg(scene), title_img);
     
     if (enter_pressed) {
-        sounds.play(scene, sounds.blips);
+        sounds.play(scene, sounds.bad_melody);
         next_state = STATE_TUTORIAL;
     }
 }
@@ -532,12 +530,13 @@ function update_locked_in_animation_state (scene) {
     
     var max_per_pair_dur = 10;
     var min_per_pair_dur = 2;
-    if (n_pts <= 6) {
+    var n_pts_for_max_dur = 8;
+    if (n_pts <= n_pts_for_max_dur) {
         per_pair_dur = max_per_pair_dur;
     } else if (n_pts >= 16) {  // this is level 100 or so
         per_pair_dur = min_per_pair_dur;
     } else {
-        var prog = (n_pts - 6) / (16 - 6);
+        var prog = (n_pts - n_pts_for_max_dur) / (16 - n_pts_for_max_dur);
         per_pair_dur = min_per_pair_dur + Math.round((max_per_pair_dur - min_per_pair_dur) * (1 - prog));
     }
     
